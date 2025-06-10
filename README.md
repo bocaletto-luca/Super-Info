@@ -1,4 +1,4 @@
-# Super Info
+# Super Info | BASH Script
 
 **Author:** Bocaletto Luca
 
