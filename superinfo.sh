@@ -9,16 +9,6 @@
 #
 # Release: v2.0.0
 #
-# New Features in this release:
-#   - Configuration file support (super_info.conf)
-#   - Advanced logging (to file and console)
-#   - New maintenance operations, grouped in a maintenance submenu:
-#       • System Update & Upgrade
-#       • System Dist Upgrade
-#       • Self Update (git pull)
-#       • System Cleanup (autoclean & autoremove)
-#       • Check Upgradable Packages
-#   - System Monitor using vmstat.
 #
 ###############################################################################
 
