@@ -12,17 +12,15 @@
 #   1) System Info                – Displays basic system information.
 #   2) Machine Info               – Displays detailed hardware specifications.
 #   3) User Info                  – Shows details about the current user.
-#   4) Login & Service Monitoring – Monitors active sessions and status of 
-#                                    critical services.
-#   5) Authentication Log Monitoring – Continuously displays the last 20 events 
-#                                       from /var/log/auth.log.
+#   4) Login & Service Monitoring – Monitors active sessions and status of critical services.
+#   5) Authentication Log Monitoring – Continuously displays the last 20 events from /var/log/auth.log.
 #   6) Network & Ports Analysis   – Scans and displays open network ports.
 #   7) Advanced Dashboard         – Launches the Glances dashboard.
 #   8) Audit & Log Correlation    – Searches auth logs for suspicious keywords.
-#   9) Suspicious Process Check   – Analyzes top 30 CPU-consuming processes 
-#                                    and flags those not on a whitelist.
-#   10) System Update & Upgrade   – Updates the system package list and upgrades 
-#                                    installed packages.
+#   9) Suspicious Process Check   – Analyzes top 30 CPU-consuming processes and flags those not on a whitelist.
+#   10) System Update & Upgrade   – Update the package list and upgrade installed packages.
+#   11) System Dist Upgrade       – Performs a distribution upgrade (apt-get dist-upgrade).
+#   12) Self Update               – Updates the script itself via 'git pull'.
 #   0) Exit                      – Terminates the program.
 #
 ###############################################################################
@@ -432,6 +430,56 @@ system_update_upgrade() {
 }
 
 ###############################################################################
+# NEW Function: system_dist_upgrade
+# Description: Esegue "apt-get update" seguito da "apt-get dist-upgrade" previa conferma.
+###############################################################################
+system_dist_upgrade() {
+    clear
+    print_border
+    print_title "${YELLOW}SYSTEM DIST UPGRADE${NC}"
+    print_border
+    echo -e "${CYAN}This function will update the package list and perform a distribution upgrade (apt-get dist-upgrade).${NC}\n"
+    
+    read -rp "Proceed with 'apt-get update'? [Y/n]: " ans_update
+    if [[ "$ans_update" =~ ^[Yy] || -z "$ans_update" ]]; then
+       sudo apt-get update && echo -e "${GREEN}Update completed successfully.${NC}" || { echo -e "${RED}Update failed.${NC}"; return; }
+    else
+       echo -e "${YELLOW}Update skipped.${NC}"
+    fi
+
+    echo ""
+    read -rp "Proceed with 'apt-get dist-upgrade'? [Y/n]: " ans_dist_upgrade
+    if [[ "$ans_dist_upgrade" =~ ^[Yy] || -z "$ans_dist_upgrade" ]]; then
+       sudo apt-get dist-upgrade -y && echo -e "${GREEN}Distribution upgrade completed successfully.${NC}" || { echo -e "${RED}Distribution upgrade failed.${NC}"; return; }
+    else
+       echo -e "${YELLOW}Distribution upgrade skipped.${NC}"
+    fi
+    
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
+# NEW Function: self_update
+# Description: Tenta di aggiornare lo script eseguendo "git pull" dal repository.
+###############################################################################
+self_update() {
+    clear
+    print_border
+    print_title "${YELLOW}SELF UPDATE${NC}"
+    print_border
+    echo -e "${CYAN}Attempting to update Super Info via git pull.${NC}\n"
+    if command -v git &>/dev/null && [ -d ".git" ]; then
+        git pull origin main || { echo -e "${RED}Self-update failed. Please update manually.${NC}"; sleep 2; return; }
+        echo -e "${GREEN}Super Info has been updated successfully.${NC}"
+    else
+        echo -e "${RED}Git is not available or this is not a git repository. Cannot perform self-update.${NC}"
+    fi
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
 # Main Menu: Mostra il menu principale e gestisce le scelte dell'utente.
 ###############################################################################
 main_menu() {
@@ -451,7 +499,9 @@ main_menu() {
          echo -e "7) Advanced Dashboard"
          echo -e "8) Audit & Log Correlation"
          echo -e "9) Suspicious Process Check"
-         echo -e "10) System Update & Upgrade${NC}"
+         echo -e "10) System Update & Upgrade"
+         echo -e "11) System Dist Upgrade"
+         echo -e "12) Self Update${NC}"
          echo -e "${RED}0) Exit${NC}\n"
          print_border
          read -rp "Enter your choice: " choice
@@ -467,6 +517,8 @@ main_menu() {
               8) audit_log ;;
               9) suspicious_process_check ;;
               10) system_update_upgrade ;;
+              11) system_dist_upgrade ;;
+              12) self_update ;;
               0) clear; echo -e "${MAGENTA}Exiting...${NC}"; exit 0 ;;
               *) echo -e "${RED}Invalid choice. Please try again.${NC}"; sleep 2 ;;
          esac
