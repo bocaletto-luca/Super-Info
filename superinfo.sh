@@ -7,8 +7,14 @@
 # Super Info is a comprehensive, text-based utility for system administrators
 # on Ubuntu and other Debian-based distributions.
 #
-# Release: v2.0.0
+# Release: v2.1.0
 #
+# New Features in this release:
+#   - Configuration file support (super_info.conf)
+#   - Advanced logging (to file and console)
+#   - Maintenance submenu for update/upgrade/cleanup/self-update/check_upgradable
+#   - A new function: system_health_check() that reports disk usage, memory usage and CPU load.
+#   - System monitor using vmstat.
 #
 ###############################################################################
 
@@ -534,7 +540,7 @@ check_outdated() {
 
 ###############################################################################
 # NEW Function: system_monitor
-# Description: Monitors system performance using vmstat for a fixed number of iterations.
+# Description: Monitors system performance using vmstat for a fixed period.
 ###############################################################################
 system_monitor() {
     clear
@@ -553,8 +559,52 @@ system_monitor() {
 }
 
 ###############################################################################
+# NEW Function: system_health_check
+# Description: Checks disk usage, memory usage and CPU load average.
+###############################################################################
+system_health_check() {
+    clear
+    print_border
+    print_title "${YELLOW}SYSTEM HEALTH CHECK${NC}"
+    print_border
+
+    # Check Disk Usage (for / partition)
+    local disk_usage
+    disk_usage=$(df / | tail -1 | awk '{print $5}' | tr -d '%')
+    echo -e "${BLUE}Disk Usage ( / ):${NC} ${GREEN}${disk_usage}%${NC}"
+    if [ "$disk_usage" -ge 90 ]; then
+        echo -e "${RED}Warning: Disk usage is above 90%!${NC}"
+        log_msg "WARNING" "Disk usage critical: ${disk_usage}%"
+    fi
+
+    # Check Memory Usage
+    local mem_usage total used available percentage
+    read total used available _ < <(free -m | awk 'NR==2{print $2, $3, $7}')
+    percentage=$(( 100 * used / total ))
+    echo -e "${BLUE}Memory Usage:${NC} ${GREEN}${percentage}%${NC} (Used: ${used}MB / Total: ${total}MB)"
+    if [ "$percentage" -ge 90 ]; then
+        echo -e "${RED}Warning: Memory usage is above 90%!${NC}"
+        log_msg "WARNING" "Memory usage critical: ${percentage}%"
+    fi
+
+    # Check CPU Load Average (1 minute)
+    local load_avg
+    load_avg=$(uptime | awk -F'load average:' '{print $2}' | cut -d, -f1 | sed 's/ //g')
+    echo -e "${BLUE}CPU Load Average (1 min):${NC} ${GREEN}${load_avg}${NC}"
+    # Supponiamo un carico > 2.0 come critico; questo valore va adattato in base al numero di core.
+    awk -v load="$load_avg" 'BEGIN { if (load+0 > 2.0) exit 1; else exit 0; }'
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}Warning: CPU load average is above 2.0!${NC}"
+        log_msg "WARNING" "CPU load average critical: ${load_avg}"
+    fi
+
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
 # NEW Function: update_menu (Maintenance Submenu)
-# Description: Displays a submenu for update/upgrade/cleanup operations.
+# Description: Displays a submenu for update/upgrade/maintenance operations.
 ###############################################################################
 update_menu() {
     while true; do
@@ -604,6 +654,7 @@ main_menu() {
          echo -e "9) Suspicious Process Check"
          echo -e "10) System Monitor (vmstat)"
          echo -e "15) Maintenance Operations (Update/Upgrade/Cleanup)"
+         echo -e "16) System Health Check"
          echo -e "${RED}0) Exit${NC}\n"
          print_border
          read -rp "Enter your choice: " choice
@@ -619,6 +670,7 @@ main_menu() {
               9) suspicious_process_check ;;
               10) system_monitor ;;
               15) update_menu ;;
+              16) system_health_check ;;
               0) clear; echo -e "${MAGENTA}Exiting...${NC}"; exit 0 ;;
               *) echo -e "${RED}Invalid choice. Please try again.${NC}"; sleep 2 ;;
          esac
