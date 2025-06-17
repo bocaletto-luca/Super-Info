@@ -12,12 +12,17 @@
 #   1) System Info                – Displays basic system information.
 #   2) Machine Info               – Displays detailed hardware specifications.
 #   3) User Info                  – Shows details about the current user.
-#   4) Login & Service Monitoring – Monitors active sessions and status of critical services.
-#   5) Authentication Log Monitoring – Continuously displays the last 20 events from /var/log/auth.log.
-#   6) Network & Ports Analysis   – Scans and displays open network ports (using ss).
-#   7) Advanced Dashboard         – Launches the Glances real-time monitoring dashboard.
+#   4) Login & Service Monitoring – Monitors active sessions and status of 
+#                                    critical services.
+#   5) Authentication Log Monitoring – Continuously displays the last 20 events 
+#                                       from /var/log/auth.log.
+#   6) Network & Ports Analysis   – Scans and displays open network ports.
+#   7) Advanced Dashboard         – Launches the Glances dashboard.
 #   8) Audit & Log Correlation    – Searches auth logs for suspicious keywords.
-#   9) Suspicious Process Check   – Analyzes the top 30 CPU-consuming processes and flags those not on a whitelist.
+#   9) Suspicious Process Check   – Analyzes top 30 CPU-consuming processes 
+#                                    and flags those not on a whitelist.
+#   10) System Update & Upgrade   – Updates the system package list and upgrades 
+#                                    installed packages.
 #   0) Exit                      – Terminates the program.
 #
 ###############################################################################
@@ -49,7 +54,6 @@ trap cleanup SIGINT SIGTERM
 log_msg() {
     local level="$1"
     local msg="$2"
-    # Puoi espandere questa funzione per scrivere su file se necessario.
     echo -e "[${level}] $(date +"%Y-%m-%d %T") : ${msg}"
 }
 
@@ -103,7 +107,12 @@ set_dialog_dimensions() {
 }
 set_dialog_dimensions
 
-# --- Feature Functions ---
+###############################################################################
+# Function: system_info
+# Description: Mostra le informazioni di base del sistema.
+# Input: Nessuno.
+# Output: Visualizza le informazioni e attende l'input per tornare al menu.
+###############################################################################
 system_info() {
     clear
     print_border
@@ -132,6 +141,10 @@ system_info() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# Function: machine_info
+# Description: Mostra le specifiche hardware della macchina.
+###############################################################################
 machine_info() {
     clear
     print_border
@@ -156,6 +169,10 @@ machine_info() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# Function: user_info
+# Description: Mostra le informazioni relative all'utente corrente.
+###############################################################################
 user_info() {
     clear
     print_border
@@ -175,6 +192,10 @@ user_info() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# Function: login_service_monitor
+# Description: Monitora le sessioni attive e lo stato dei servizi critici.
+###############################################################################
 login_service_monitor() {
     while true; do
         local ts sessions multi key output
@@ -211,6 +232,10 @@ login_service_monitor() {
     done
 }
 
+###############################################################################
+# Function: auth_log_monitor
+# Description: Mostra in continuazione gli ultimi 20 eventi da /var/log/auth.log.
+###############################################################################
 auth_log_monitor() {
     while true; do
         local rep key
@@ -227,6 +252,10 @@ auth_log_monitor() {
     done
 }
 
+###############################################################################
+# Function: network_ports_analysis
+# Description: Scansiona e mostra le porte di rete aperte usando il comando ss.
+###############################################################################
 network_ports_analysis() {
     clear
     print_border
@@ -243,6 +272,10 @@ network_ports_analysis() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# Function: paginate_output
+# Description: Paginazione dell'output (default 20 righe per pagina).
+###############################################################################
 paginate_output() {
     local output="$1"
     local lines_per_page=${2:-20}
@@ -260,6 +293,10 @@ paginate_output() {
     done
 }
 
+###############################################################################
+# Function: file_integrity_check
+# Description: Verifica l'integrità dei file di sistema usando debsums.
+###############################################################################
 file_integrity_check() {
     clear
     print_border
@@ -287,6 +324,10 @@ file_integrity_check() {
     fi
 }
 
+###############################################################################
+# Function: advanced_dashboard
+# Description: Avvia il dashboard Glances per il monitoraggio in tempo reale.
+###############################################################################
 advanced_dashboard() {
     clear
     if command -v glances &>/dev/null; then
@@ -303,6 +344,10 @@ advanced_dashboard() {
     fi
 }
 
+###############################################################################
+# Function: audit_log
+# Description: Cerca nei log di autenticazione parole chiave sospette.
+###############################################################################
 audit_log() {
     clear
     print_border
@@ -321,6 +366,10 @@ audit_log() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# Function: suspicious_process_check
+# Description: Analizza i processi top (30 per uso CPU) e segnala quelli non in whitelist.
+###############################################################################
 suspicious_process_check() {
     clear
     print_border
@@ -353,6 +402,38 @@ suspicious_process_check() {
     read -rp "Press Enter to return to the menu..." dummy
 }
 
+###############################################################################
+# NEW Function: system_update_upgrade
+# Description: Esegue "apt-get update" e, previa conferma, "apt-get upgrade"
+###############################################################################
+system_update_upgrade() {
+    clear
+    print_border
+    print_title "${YELLOW}SYSTEM UPDATE & UPGRADE${NC}"
+    print_border
+    echo -e "${CYAN}This function will update the package list and optionally upgrade installed packages.${NC}\n"
+    
+    read -rp "Proceed with 'apt-get update'? [Y/n]: " ans_update
+    if [[ "$ans_update" =~ ^[Yy] || -z "$ans_update" ]]; then
+       sudo apt-get update && echo -e "${GREEN}Update completed successfully.${NC}" || { echo -e "${RED}Update failed.${NC}"; return; }
+    else
+       echo -e "${YELLOW}Update skipped.${NC}"
+    fi
+
+    echo ""
+    read -rp "Proceed with 'apt-get upgrade'? [Y/n]: " ans_upgrade
+    if [[ "$ans_upgrade" =~ ^[Yy] || -z "$ans_upgrade" ]]; then
+       sudo apt-get upgrade -y && echo -e "${GREEN}Upgrade completed successfully.${NC}" || { echo -e "${RED}Upgrade failed.${NC}"; return; }
+    else
+       echo -e "${YELLOW}Upgrade skipped.${NC}"
+    fi
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
+# Main Menu: Mostra il menu principale e gestisce le scelte dell'utente.
+###############################################################################
 main_menu() {
     while true; do
          clear
@@ -369,7 +450,8 @@ main_menu() {
          #echo -e "7) File Integrity Check"
          echo -e "7) Advanced Dashboard"
          echo -e "8) Audit & Log Correlation"
-         echo -e "9) Suspicious Process Check${NC}"
+         echo -e "9) Suspicious Process Check"
+         echo -e "10) System Update & Upgrade${NC}"
          echo -e "${RED}0) Exit${NC}\n"
          print_border
          read -rp "Enter your choice: " choice
@@ -384,6 +466,7 @@ main_menu() {
               7) advanced_dashboard ;;
               8) audit_log ;;
               9) suspicious_process_check ;;
+              10) system_update_upgrade ;;
               0) clear; echo -e "${MAGENTA}Exiting...${NC}"; exit 0 ;;
               *) echo -e "${RED}Invalid choice. Please try again.${NC}"; sleep 2 ;;
          esac
