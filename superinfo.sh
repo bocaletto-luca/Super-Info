@@ -4,24 +4,21 @@
 # License: Apache 2.0
 # Language: English
 #
-# Super Info is a comprehensive, text-based utility for system administrators on 
-# Ubuntu and other Debian-based distributions. It provides essential security 
-# monitoring and system checks via a custom ASCII interface with colors.
+# Super Info is a comprehensive, text-based utility for system administrators
+# on Ubuntu and other Debian-based distributions.
 #
-# Features:
-#   1) System Info                – Displays basic system information.
-#   2) Machine Info               – Displays detailed hardware specifications.
-#   3) User Info                  – Shows details about the current user.
-#   4) Login & Service Monitoring – Monitors active sessions and status of critical services.
-#   5) Authentication Log Monitoring – Continuously displays the last 20 events from /var/log/auth.log.
-#   6) Network & Ports Analysis   – Scans and displays open network ports.
-#   7) Advanced Dashboard         – Launches the Glances dashboard.
-#   8) Audit & Log Correlation    – Searches auth logs for suspicious keywords.
-#   9) Suspicious Process Check   – Analyzes top 30 CPU-consuming processes and flags those not on a whitelist.
-#   10) System Update & Upgrade   – Update the package list and upgrade installed packages.
-#   11) System Dist Upgrade       – Performs a distribution upgrade (apt-get dist-upgrade).
-#   12) Self Update               – Updates the script itself via 'git pull'.
-#   0) Exit                      – Terminates the program.
+# Release: v2.0.0
+#
+# New Features in this release:
+#   - Configuration file support (super_info.conf)
+#   - Advanced logging (to file and console)
+#   - New maintenance operations, grouped in a maintenance submenu:
+#       • System Update & Upgrade
+#       • System Dist Upgrade
+#       • Self Update (git pull)
+#       • System Cleanup (autoclean & autoremove)
+#       • Check Upgradable Packages
+#   - System Monitor using vmstat.
 #
 ###############################################################################
 
@@ -41,6 +38,17 @@ else
   RED=""; GREEN=""; YELLOW=""; BLUE=""; MAGENTA=""; CYAN=""; NC="";
 fi
 
+# --- Load Configuration File if Available ---
+CONFIG_FILE="./super_info.conf"
+if [ -f "$CONFIG_FILE" ]; then
+    source "$CONFIG_FILE"
+else
+    echo -e "${YELLOW}Config file not found. Using default settings.${NC}"
+    LOG_FILE="./super_info.log"
+    DEFAULT_UPDATE_RESPONSE="Y"
+    DEFAULT_UPGRADE_RESPONSE="Y"
+fi
+
 # --- Trap for clean exit on SIGINT and SIGTERM ---
 cleanup() {
     echo -e "\n${MAGENTA}Exiting Super Info...${NC}"
@@ -48,11 +56,14 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-# --- Logging function (estendibile) ---
+# --- Logging Function (Advanced) ---
 log_msg() {
     local level="$1"
     local msg="$2"
-    echo -e "[${level}] $(date +"%Y-%m-%d %T") : ${msg}"
+    local timestamp
+    timestamp=$(date +"%Y-%m-%d %T")
+    echo -e "[${level}] ${timestamp} : ${msg}"
+    echo "[${level}] ${timestamp} : ${msg}" >> "$LOG_FILE"
 }
 
 # --- Utility Functions ---
@@ -78,13 +89,14 @@ check_install_dependencies() {
     done
     if [ ${#missing[@]} -gt 0 ]; then
         echo -e "${YELLOW}The following packages are missing and will be installed:${NC} ${missing[*]}"
-        read -rp "Proceed with installation? [Y/n] " answer
+        read -rp "Proceed with installation? [Y/n]: " answer
         if [[ "$answer" =~ ^[Yy] || -z "$answer" ]]; then
             sudo apt-get update && sudo apt-get install -y "${missing[@]}"
             if [ $? -ne 0 ]; then
                 echo -e "${RED}Error installing packages. Exiting.${NC}"
                 exit 1
             fi
+            log_msg "INFO" "Installed missing dependencies: ${missing[*]}"
         else
             echo -e "${RED}Required dependencies missing. Exiting.${NC}"
             exit 1
@@ -107,9 +119,7 @@ set_dialog_dimensions
 
 ###############################################################################
 # Function: system_info
-# Description: Mostra le informazioni di base del sistema.
-# Input: Nessuno.
-# Output: Visualizza le informazioni e attende l'input per tornare al menu.
+# Description: Displays basic system information.
 ###############################################################################
 system_info() {
     clear
@@ -141,7 +151,7 @@ system_info() {
 
 ###############################################################################
 # Function: machine_info
-# Description: Mostra le specifiche hardware della macchina.
+# Description: Displays detailed hardware specifications.
 ###############################################################################
 machine_info() {
     clear
@@ -169,7 +179,7 @@ machine_info() {
 
 ###############################################################################
 # Function: user_info
-# Description: Mostra le informazioni relative all'utente corrente.
+# Description: Displays information about the current user.
 ###############################################################################
 user_info() {
     clear
@@ -192,7 +202,7 @@ user_info() {
 
 ###############################################################################
 # Function: login_service_monitor
-# Description: Monitora le sessioni attive e lo stato dei servizi critici.
+# Description: Monitors active sessions and status of critical services.
 ###############################################################################
 login_service_monitor() {
     while true; do
@@ -232,7 +242,7 @@ login_service_monitor() {
 
 ###############################################################################
 # Function: auth_log_monitor
-# Description: Mostra in continuazione gli ultimi 20 eventi da /var/log/auth.log.
+# Description: Continuously displays the last 20 events from /var/log/auth.log.
 ###############################################################################
 auth_log_monitor() {
     while true; do
@@ -252,7 +262,7 @@ auth_log_monitor() {
 
 ###############################################################################
 # Function: network_ports_analysis
-# Description: Scansiona e mostra le porte di rete aperte usando il comando ss.
+# Description: Scans and displays open network ports using the 'ss' command.
 ###############################################################################
 network_ports_analysis() {
     clear
@@ -272,7 +282,7 @@ network_ports_analysis() {
 
 ###############################################################################
 # Function: paginate_output
-# Description: Paginazione dell'output (default 20 righe per pagina).
+# Description: Paginates the provided output (default 20 lines per page).
 ###############################################################################
 paginate_output() {
     local output="$1"
@@ -293,7 +303,7 @@ paginate_output() {
 
 ###############################################################################
 # Function: file_integrity_check
-# Description: Verifica l'integrità dei file di sistema usando debsums.
+# Description: Checks system file integrity using debsums.
 ###############################################################################
 file_integrity_check() {
     clear
@@ -324,7 +334,7 @@ file_integrity_check() {
 
 ###############################################################################
 # Function: advanced_dashboard
-# Description: Avvia il dashboard Glances per il monitoraggio in tempo reale.
+# Description: Launches the Glances dashboard for real-time monitoring.
 ###############################################################################
 advanced_dashboard() {
     clear
@@ -344,7 +354,7 @@ advanced_dashboard() {
 
 ###############################################################################
 # Function: audit_log
-# Description: Cerca nei log di autenticazione parole chiave sospette.
+# Description: Searches authentication logs for suspicious keywords.
 ###############################################################################
 audit_log() {
     clear
@@ -366,7 +376,7 @@ audit_log() {
 
 ###############################################################################
 # Function: suspicious_process_check
-# Description: Analizza i processi top (30 per uso CPU) e segnala quelli non in whitelist.
+# Description: Analyzes the top 30 CPU-consuming processes and flags those not on a whitelist.
 ###############################################################################
 suspicious_process_check() {
     clear
@@ -402,7 +412,7 @@ suspicious_process_check() {
 
 ###############################################################################
 # NEW Function: system_update_upgrade
-# Description: Esegue "apt-get update" e, previa conferma, "apt-get upgrade"
+# Description: Runs "apt-get update" and, upon confirmation, "apt-get upgrade".
 ###############################################################################
 system_update_upgrade() {
     clear
@@ -411,19 +421,21 @@ system_update_upgrade() {
     print_border
     echo -e "${CYAN}This function will update the package list and optionally upgrade installed packages.${NC}\n"
     
-    read -rp "Proceed with 'apt-get update'? [Y/n]: " ans_update
+    read -rp "Proceed with 'apt-get update'? [${DEFAULT_UPDATE_RESPONSE}/n]: " ans_update
     if [[ "$ans_update" =~ ^[Yy] || -z "$ans_update" ]]; then
-       sudo apt-get update && echo -e "${GREEN}Update completed successfully.${NC}" || { echo -e "${RED}Update failed.${NC}"; return; }
+       sudo apt-get update && { echo -e "${GREEN}Update completed successfully.${NC}"; log_msg "INFO" "apt-get update succeeded."; } || { echo -e "${RED}Update failed.${NC}"; log_msg "ERROR" "apt-get update failed."; return; }
     else
        echo -e "${YELLOW}Update skipped.${NC}"
+       log_msg "INFO" "apt-get update skipped.";
     fi
 
     echo ""
-    read -rp "Proceed with 'apt-get upgrade'? [Y/n]: " ans_upgrade
+    read -rp "Proceed with 'apt-get upgrade'? [${DEFAULT_UPGRADE_RESPONSE}/n]: " ans_upgrade
     if [[ "$ans_upgrade" =~ ^[Yy] || -z "$ans_upgrade" ]]; then
-       sudo apt-get upgrade -y && echo -e "${GREEN}Upgrade completed successfully.${NC}" || { echo -e "${RED}Upgrade failed.${NC}"; return; }
+       sudo apt-get upgrade -y && { echo -e "${GREEN}Upgrade completed successfully.${NC}"; log_msg "INFO" "apt-get upgrade succeeded."; } || { echo -e "${RED}Upgrade failed.${NC}"; log_msg "ERROR" "apt-get upgrade failed."; return; }
     else
        echo -e "${YELLOW}Upgrade skipped.${NC}"
+       log_msg "INFO" "apt-get upgrade skipped.";
     fi
     print_border
     read -rp "Press Enter to return to the menu..." dummy
@@ -431,7 +443,7 @@ system_update_upgrade() {
 
 ###############################################################################
 # NEW Function: system_dist_upgrade
-# Description: Esegue "apt-get update" seguito da "apt-get dist-upgrade" previa conferma.
+# Description: Runs "apt-get update" and, upon confirmation, "apt-get dist-upgrade".
 ###############################################################################
 system_dist_upgrade() {
     clear
@@ -440,19 +452,21 @@ system_dist_upgrade() {
     print_border
     echo -e "${CYAN}This function will update the package list and perform a distribution upgrade (apt-get dist-upgrade).${NC}\n"
     
-    read -rp "Proceed with 'apt-get update'? [Y/n]: " ans_update
+    read -rp "Proceed with 'apt-get update'? [${DEFAULT_UPDATE_RESPONSE}/n]: " ans_update
     if [[ "$ans_update" =~ ^[Yy] || -z "$ans_update" ]]; then
-       sudo apt-get update && echo -e "${GREEN}Update completed successfully.${NC}" || { echo -e "${RED}Update failed.${NC}"; return; }
+       sudo apt-get update && { echo -e "${GREEN}Update completed successfully.${NC}"; log_msg "INFO" "apt-get update succeeded for dist-upgrade."; } || { echo -e "${RED}Update failed.${NC}"; log_msg "ERROR" "apt-get update failed for dist-upgrade."; return; }
     else
        echo -e "${YELLOW}Update skipped.${NC}"
+       log_msg "INFO" "apt-get update skipped for dist-upgrade.";
     fi
 
     echo ""
-    read -rp "Proceed with 'apt-get dist-upgrade'? [Y/n]: " ans_dist_upgrade
+    read -rp "Proceed with 'apt-get dist-upgrade'? [${DEFAULT_UPGRADE_RESPONSE}/n]: " ans_dist_upgrade
     if [[ "$ans_dist_upgrade" =~ ^[Yy] || -z "$ans_dist_upgrade" ]]; then
-       sudo apt-get dist-upgrade -y && echo -e "${GREEN}Distribution upgrade completed successfully.${NC}" || { echo -e "${RED}Distribution upgrade failed.${NC}"; return; }
+       sudo apt-get dist-upgrade -y && { echo -e "${GREEN}Distribution upgrade completed successfully.${NC}"; log_msg "INFO" "apt-get dist-upgrade succeeded."; } || { echo -e "${RED}Distribution upgrade failed.${NC}"; log_msg "ERROR" "apt-get dist-upgrade failed."; return; }
     else
        echo -e "${YELLOW}Distribution upgrade skipped.${NC}"
+       log_msg "INFO" "apt-get dist-upgrade skipped.";
     fi
     
     print_border
@@ -461,7 +475,7 @@ system_dist_upgrade() {
 
 ###############################################################################
 # NEW Function: self_update
-# Description: Tenta di aggiornare lo script eseguendo "git pull" dal repository.
+# Description: Attempts to update the script by performing a 'git pull' from the repository.
 ###############################################################################
 self_update() {
     clear
@@ -470,17 +484,117 @@ self_update() {
     print_border
     echo -e "${CYAN}Attempting to update Super Info via git pull.${NC}\n"
     if command -v git &>/dev/null && [ -d ".git" ]; then
-        git pull origin main || { echo -e "${RED}Self-update failed. Please update manually.${NC}"; sleep 2; return; }
+        git pull origin main || { echo -e "${RED}Self-update failed. Please update manually.${NC}"; log_msg "ERROR" "Self-update failed."; sleep 2; return; }
         echo -e "${GREEN}Super Info has been updated successfully.${NC}"
+        log_msg "INFO" "Self-update succeeded.";
     else
         echo -e "${RED}Git is not available or this is not a git repository. Cannot perform self-update.${NC}"
+        log_msg "ERROR" "Self-update not possible.";
     fi
     print_border
     read -rp "Press Enter to return to the menu..." dummy
 }
 
 ###############################################################################
-# Main Menu: Mostra il menu principale e gestisce le scelte dell'utente.
+# NEW Function: system_cleanup
+# Description: Runs "apt-get autoclean" and "apt-get autoremove" to clean up unused packages.
+###############################################################################
+system_cleanup() {
+    clear
+    print_border
+    print_title "${YELLOW}SYSTEM CLEANUP${NC}"
+    print_border
+    echo -e "${CYAN}This function will run 'apt-get autoclean' and 'apt-get autoremove' to free up space by removing unused packages.${NC}\n"
+    
+    read -rp "Proceed with 'apt-get autoclean'? [Y/n]: " ans_autoclean
+    if [[ "$ans_autoclean" =~ ^[Yy] || -z "$ans_autoclean" ]]; then
+       sudo apt-get autoclean && { echo -e "${GREEN}Autoclean completed successfully.${NC}"; log_msg "INFO" "apt-get autoclean succeeded."; } || { echo -e "${RED}Autoclean failed.${NC}"; log_msg "ERROR" "apt-get autoclean failed."; return; }
+    else
+       echo -e "${YELLOW}Autoclean skipped.${NC}"
+       log_msg "INFO" "apt-get autoclean skipped.";
+    fi
+    
+    echo ""
+    read -rp "Proceed with 'apt-get autoremove'? [Y/n]: " ans_autoremove
+    if [[ "$ans_autoremove" =~ ^[Yy] || -z "$ans_autoremove" ]]; then
+       sudo apt-get autoremove -y && { echo -e "${GREEN}Autoremove completed successfully.${NC}"; log_msg "INFO" "apt-get autoremove succeeded."; } || { echo -e "${RED}Autoremove failed.${NC}"; log_msg "ERROR" "apt-get autoremove failed."; return; }
+    else
+       echo -e "${YELLOW}Autoremove skipped.${NC}"
+       log_msg "INFO" "apt-get autoremove skipped.";
+    fi
+    
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
+# NEW Function: check_outdated
+# Description: Lists upgradable packages using 'apt list --upgradable'.
+###############################################################################
+check_outdated() {
+    clear
+    print_border
+    print_title "${YELLOW}CHECK UPGRADABLE PACKAGES${NC}"
+    print_border
+    echo -e "${CYAN}The following packages are available for upgrade:${NC}\n"
+    apt list --upgradable 2>/dev/null | sed '1d'
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+}
+
+###############################################################################
+# NEW Function: system_monitor
+# Description: Monitors system performance using vmstat for a fixed number of iterations.
+###############################################################################
+system_monitor() {
+    clear
+    print_border
+    print_title "${YELLOW}SYSTEM MONITOR (vmstat)${NC}"
+    print_border
+    echo -e "${CYAN}Launching system monitor for 10 iterations...${NC}"
+    echo -e "Timestamp, procs, memory, swap, io, system, cpu"
+    for i in {1..10}; do
+         vmstat | tail -n 1 | awk -v ts="$(date +"%T")" '{print ts", "$0}'
+         sleep 2
+    done
+    print_border
+    read -rp "Press Enter to return to the menu..." dummy
+    log_msg "INFO" "System monitor executed for 10 iterations."
+}
+
+###############################################################################
+# NEW Function: update_menu (Maintenance Submenu)
+# Description: Displays a submenu for update/upgrade/cleanup operations.
+###############################################################################
+update_menu() {
+    while true; do
+        clear
+        print_border
+        print_title "${YELLOW}MAINTENANCE OPERATIONS MENU${NC}"
+        print_border
+        echo -e "${CYAN}Select an option:${NC}\n"
+        echo -e "${YELLOW}1) System Update & Upgrade"
+        echo -e "2) System Dist Upgrade"
+        echo -e "3) Self Update"
+        echo -e "4) System Cleanup (Autoclean & Autoremove)"
+        echo -e "5) Check Upgradable Packages"
+        echo -e "6) Return to Main Menu${NC}"
+        print_border
+        read -rp "Enter your choice: " choice_update
+        case $choice_update in
+             1) system_update_upgrade ;;
+             2) system_dist_upgrade ;;
+             3) self_update ;;
+             4) system_cleanup ;;
+             5) check_outdated ;;
+             6) break ;;
+             *) echo -e "${RED}Invalid option. Try again.${NC}"; sleep 2 ;;
+        esac
+    done
+}
+
+###############################################################################
+# Main Menu: Displays the main menu and routes user choices.
 ###############################################################################
 main_menu() {
     while true; do
@@ -495,13 +609,11 @@ main_menu() {
          echo -e "4) Login & Service Monitoring"
          echo -e "5) Authentication Log Monitoring"
          echo -e "6) Network & Ports Analysis"
-         #echo -e "7) File Integrity Check"
          echo -e "7) Advanced Dashboard"
          echo -e "8) Audit & Log Correlation"
          echo -e "9) Suspicious Process Check"
-         echo -e "10) System Update & Upgrade"
-         echo -e "11) System Dist Upgrade"
-         echo -e "12) Self Update${NC}"
+         echo -e "10) System Monitor (vmstat)"
+         echo -e "15) Maintenance Operations (Update/Upgrade/Cleanup)"
          echo -e "${RED}0) Exit${NC}\n"
          print_border
          read -rp "Enter your choice: " choice
@@ -512,13 +624,11 @@ main_menu() {
               4) login_service_monitor ;;
               5) auth_log_monitor ;;
               6) network_ports_analysis ;;
-              #7) file_integrity_check ;;
               7) advanced_dashboard ;;
               8) audit_log ;;
               9) suspicious_process_check ;;
-              10) system_update_upgrade ;;
-              11) system_dist_upgrade ;;
-              12) self_update ;;
+              10) system_monitor ;;
+              15) update_menu ;;
               0) clear; echo -e "${MAGENTA}Exiting...${NC}"; exit 0 ;;
               *) echo -e "${RED}Invalid choice. Please try again.${NC}"; sleep 2 ;;
          esac
